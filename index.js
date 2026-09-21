@@ -1,5 +1,3 @@
-'use strict'
-
 const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.js')
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
