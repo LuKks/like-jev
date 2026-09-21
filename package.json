@@ -5,7 +5,7 @@
   "main": "index.js",
   "files": [],
   "scripts": {
-    "test": "standard && brittle test.js"
+    "test": "standard && brittle-node test.js"
   },
   "repository": {
     "type": "git",
