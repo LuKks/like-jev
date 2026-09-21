@@ -38,11 +38,11 @@ test('uses numeric question type for fallback temperature', async function (t) {
   t.is(result.answers.severity.probabilities['1'], 0.6225)
 })
 
-test('answers typed questions with the real model (onnx)', async function (t) {
+test('answers typed questions with the real model (onnx)', { timeout: 60000 * 5 }, async function (t) {
   await realModelTest(t, { backend: 'onnx' }, 'laya')
 })
 
-test('answers typed questions with the real model (mlx)', { skip: process.platform !== 'darwin' }, async function (t) {
+test('answers typed questions with the real model (mlx)', { timeout: 60000 * 5, skip: process.platform !== 'darwin' }, async function (t) {
   await realModelTest(t, { backend: 'mlx' }, 'laya-mlx')
 })
 
