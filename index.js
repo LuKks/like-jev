@@ -2,7 +2,7 @@ const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.j
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
 
-const BACKENDS = ['auto', 'onnx', 'mlx']
+const BACKENDS = ['auto', 'onnx', 'mlx', 'coreml']
 
 module.exports = class Laya {
   constructor (opts = {}) {
