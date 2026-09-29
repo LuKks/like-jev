@@ -2,7 +2,7 @@ const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.j
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
 
-const BACKENDS = ['auto', 'onnx', 'mlx', 'coreml']
+const BACKENDS = ['auto', 'onnx', 'coreml']
 
 module.exports = class Laya {
   constructor (opts = {}) {
@@ -94,8 +94,11 @@ async function loadEngine (opts) {
   if (!BACKENDS.includes(backend)) throw new Error(`backend must be one of ${BACKENDS}`)
 
   const picked = backend === 'auto'
-    ? (process.platform === 'darwin' ? 'mlx' : 'onnx')
+    ? (process.platform === 'darwin' ? 'coreml' : 'onnx')
     : backend
+  if (picked === 'coreml' && process.platform !== 'darwin') {
+    throw new Error('Core ML requires macOS')
+  }
 
   return require(`./lib/${picked}.js`).load(opts)
 }
