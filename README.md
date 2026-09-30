@@ -62,18 +62,38 @@ Options:
 
 ```js
 {
-  backend: 'auto',
-  model: 'english',
-  modelDir: './model',
+  // 'auto' selects Core ML on macOS, and ONNX on other platforms.
+  backend: 'auto' | 'onnx' | 'coreml',
+  // The model 'multilingual' requires Core ML.
+  model: 'english' | 'multilingual'
+}
+```
+
+Extra options for the `coreml` backend:
+
+```js
+{
+  // ... model details params
+  model: 'english' | 'multilingual'
+  // The model 'multilingual' supports precision 'e8' also.
   precision: 'fp16',
-  lengths: [128, 512],
+  // The model 'multilingual' supports length up to 1024 also.
+  lengths: [128, 512]
+}
+```
+
+Extra options for the `onnx` backend:
+
+```js
+{
+  model: 'english', // The model 'multilingual' is not available for ONNX.
   logLevel: 'error',
   executionProviders: ['webgpu', 'cpu'],
   sessionOptions: {}
 }
 ```
 
-`backend` can be `auto`, `onnx`, or `coreml`. `model` can be `english` or `multilingual` with Core ML; ONNX supports only `english`. `modelDir` sets a local model directory for ONNX. Core ML uses `fp16` by default; the multilingual model also supports `e8`. Core ML defaults to lengths `128` and `512`; English supports `128` and `512`, while multilingual supports `128`, `256`, `512`, and `1024`. `logLevel`, `executionProviders`, and `sessionOptions` are passed to ONNX Runtime. The ONNX model has a 512-token context.
+The ONNX model has a 512-token context.
 
 ### `await jev.ready()`
 
