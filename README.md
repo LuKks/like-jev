@@ -96,7 +96,7 @@ A `choice` question selects one criterion. Its `criteria` can be an array of lab
 
 The result contains the selected `model`, an `answers` object keyed by question ID, and token `usage`. Choice answers include `choice` and label-keyed `probabilities`. Score answers include `score`, `legend`, and index-keyed `probabilities`. Noul answers include `noul`. Choice and score answers also include `confidence`. `output_tokens` is always `0`.
 
-Throws an error if `questions` is empty or a question type is unknown.
+Throws an error if `questions` is empty, a question type is unknown, or an input exceeds an internal token limit. Limit errors carry a `code`: `OPTION_TOO_LONG` when one option exceeds 48 tokens, `HEAD_TOO_LONG` when the options leave too little room for instructions, `INSTRUCTIONS_TOO_LONG` when the instructions exceed the remaining head budget, or `STATE_TOO_LONG` when the state exceeds the remaining context.
 
 ### `await laya.close()`
 

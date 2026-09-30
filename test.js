@@ -38,6 +38,74 @@ test('uses numeric question type for fallback temperature', async function (t) {
   t.ok(Math.abs(result.answers.severity.probabilities['1'] - 0.6224593312018546) < 1e-12)
 })
 
+test('throws coded errors when inputs exceed token limits', async function (t) {
+  t.plan(5)
+
+  const laya = new Laya({
+    engine: {
+      name: 'laya',
+      padToMultiple: null,
+      tokenizer: {
+        encode: function (text) {
+          return { ids: Array.from({ length: text.length }, () => 1) }
+        }
+      },
+      ids: { cls: 1, sep: 2, mask: 3, pad: 0, maskToken: '[MASK]' },
+      config: {
+        head_max_len: 64,
+        max_len: 96,
+        temperature: [1, 1, 1],
+        temperature_by_options: {}
+      },
+      async forward () {
+        return { logits: [[0, 1]], actProbabilities: [[1]] }
+      },
+      async close () {}
+    }
+  })
+
+  let error
+
+  try {
+    await laya.ask('s', { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'x'.repeat(60), false: 'no' } } })
+  } catch (err) {
+    error = err
+  }
+
+  t.is(error && error.code, 'OPTION_TOO_LONG')
+  t.ok(error && error.message.includes('question "q"'))
+
+  try {
+    await laya.ask('s', {
+      q: {
+        type: 'choice',
+        instructions: 'pick',
+        criteria: { a: 'a'.repeat(20), b: 'b'.repeat(20), c: 'c'.repeat(20) }
+      }
+    })
+  } catch (err) {
+    error = err
+  }
+
+  t.is(error && error.code, 'HEAD_TOO_LONG')
+
+  try {
+    await laya.ask('s', { q: { type: 'noul', instructions: 'i'.repeat(30), criteria: { true: 'yes', false: 'no' } } })
+  } catch (err) {
+    error = err
+  }
+
+  t.is(error && error.code, 'INSTRUCTIONS_TOO_LONG')
+
+  try {
+    await laya.ask('s'.repeat(60), { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'yes', false: 'no' } } })
+  } catch (err) {
+    error = err
+  }
+
+  t.is(error && error.code, 'STATE_TOO_LONG')
+})
+
 test('English Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
   await realModelTest(t, { backend: 'coreml', model: 'english' }, 'laya-coreml-english')
 })
@@ -50,7 +118,7 @@ test('English ONNX model answers typed questions', { timeout: 60000 * 10 }, asyn
   await realModelTest(t, { backend: 'onnx', model: 'english' }, 'laya-onnx-english')
 })
 
-test.solo('debug', { timeout: 60000 * 5 }, async function (t) {
+test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
   const laya = new Laya({ backend: 'coreml', model: 'multilingual' })
   await laya.ready()
 

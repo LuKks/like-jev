@@ -78,7 +78,15 @@ module.exports = class Laya {
 
     return questionIds.map(qid => {
       const question = toInternal(questions[qid])
-      const sequence = buildSequence(encode, this.ids, state, question, this.config.max_len, this.config.head_max_len)
+
+      let sequence
+      try {
+        sequence = buildSequence(encode, this.ids, state, question, this.config.max_len, this.config.head_max_len)
+      } catch (err) {
+        const wrapped = new Error(`question ${JSON.stringify(qid)}: ${err.message}`)
+        wrapped.code = err.code
+        throw wrapped
+      }
 
       if (sequence.markers.length !== sequence.options.length) {
         throw new Error(`question ${JSON.stringify(qid)}: options do not fit in head_max_len=${this.config.head_max_len} tokens`)
