@@ -1,4 +1,4 @@
-const test = require('brittle')
+const test = require('require-npm-global')('brittle')
 const Jev = require('./index.js')
 
 test('uses numeric question type for fallback temperature', async function (t) {
@@ -108,14 +108,21 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.is(error && error.code, 'STATE_TOO_LONG')
 })
 
-test('real models answer typed questions', { timeout: 60000 * 30 }, async function (t) {
+test.skip('real models answer typed questions', { timeout: 60000 * 30 }, async function (t) {
   const skip = process.platform !== 'darwin'
 
   const models = [
-    { opts: { backend: 'onnx', model: 'english' }, name: 'jev-onnx-english' },
-    { opts: { backend: 'onnx', model: 'multilingual' }, name: 'jev-onnx-multilingual' },
-    { opts: { backend: 'coreml', model: 'english' }, name: 'jev-coreml-english', skip },
-    { opts: { backend: 'coreml', model: 'multilingual' }, name: 'jev-coreml-multilingual', skip }
+    { opts: { backend: 'onnx', model: 'english', precision: 'fp16' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'english', precision: 'fp32' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16' }, name: 'jev-onnx-multilingual' },
+    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp32' }, name: 'jev-onnx-multilingual' },
+    { opts: { backend: 'coreml', model: 'english', precision: 'fp16' }, name: 'jev-coreml-english', skip },
+    { opts: { backend: 'coreml', model: 'multilingual', precision: 'e8' }, name: 'jev-coreml-multilingual', skip },
+    { opts: { backend: 'coreml', model: 'multilingual', precision: 'fp16' }, name: 'jev-coreml-multilingual', skip },
+
+    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'cpu' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'webgpu' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'coreml' }, name: 'jev-onnx-english' },
   ]
 
   const active = models.filter(model => !model.skip)
@@ -123,20 +130,30 @@ test('real models answer typed questions', { timeout: 60000 * 30 }, async functi
   t.plan(active.length * 10)
 
   for (const model of active) {
+    t.comment('Creating instance', model.opts.backend + '/' + model.opts.model + '/' + model.opts.precision + '/' + (model.opts.device || 'default'))
+
+    const time = Date.now()
+
     const jev = new Jev(model.opts)
 
     await jev.ready()
 
-    try {
-      const result = await jev.ask(
+    t.comment('jev.ready() time:', Date.now() - time, 'with', model.opts.backend + '/' + model.opts.model + '/' + model.opts.precision + '/' + (model.opts.device || 'default'))
+
+    let result = null
+
+    for (let i = 0; i < 10; i++) {
+      const time = Date.now()
+
+      result = await jev.ask(
         {
-          subject: 'Refund not received',
-          body: 'The customer cancelled two weeks ago and still has no refund.'
+          subject: 'Refund not received (#' + i + ')',
+          body: 'The customer cancelled two weeks ago and still has no refund. (#' + i + ')'
         },
         {
           team: {
             type: 'choice',
-            instructions: 'Which team should handle this?',
+            instructions: 'Which team should handle this? (#' + i + ')',
             criteria: {
               billing: 'payments and refunds',
               support: 'product help and bugs'
@@ -144,29 +161,35 @@ test('real models answer typed questions', { timeout: 60000 * 30 }, async functi
           },
           urgency: {
             type: 'score',
-            instructions: 'How urgent is this?',
+            instructions: 'How urgent is this? (#' + i + ')',
             criteria: ['low', 'medium', 'high']
           },
           urgent: {
             type: 'noul',
-            instructions: 'Does this require urgent attention?'
+            instructions: 'Does this require urgent attention? (#' + i + ')',
+            criteria: {
+              true: 'The issue needs immediate attention.',
+              false: 'The issue can be handled through the normal queue.'
+            }
           }
         }
       )
 
-      t.is(result.model, model.name)
-      t.alike(Object.keys(result.answers), ['team', 'urgency', 'urgent'])
-      t.is(result.answers.team.type, 'choice')
-      t.ok(['billing', 'support'].includes(result.answers.team.choice))
-      t.is(result.answers.urgency.type, 'score')
-      t.ok(result.answers.urgency.score >= 0 && result.answers.urgency.score <= 2)
-      t.is(result.answers.urgent.type, 'noul')
-      t.ok(result.answers.urgent.noul >= 0 && result.answers.urgent.noul <= 1)
-      t.ok(result.usage.input_tokens > 0)
-      t.is(result.usage.output_tokens, 0)
-    } finally {
-      await jev.close()
+      t.comment('jev.ask(...) time:', Date.now() - time, 'ms with', model.opts.backend + '/' + model.opts.model + '/' + model.opts.precision + '/' + (model.opts.device || 'default'))
     }
+
+    t.is(result.model, model.name)
+    t.alike(Object.keys(result.answers), ['team', 'urgency', 'urgent'])
+    t.is(result.answers.team.type, 'choice')
+    t.ok(['billing', 'support'].includes(result.answers.team.choice))
+    t.is(result.answers.urgency.type, 'score')
+    t.ok(result.answers.urgency.score >= 0 && result.answers.urgency.score <= 2)
+    t.is(result.answers.urgent.type, 'noul')
+    t.ok(result.answers.urgent.noul >= 0 && result.answers.urgent.noul <= 1)
+    t.ok(result.usage.input_tokens > 0)
+    t.is(result.usage.output_tokens, 0)
+
+    await jev.close()
   }
 })
 

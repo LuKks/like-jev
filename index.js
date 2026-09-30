@@ -3,6 +3,7 @@
 const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.js')
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
+const ErrorJEV = require('./lib/error.js')
 
 const BACKENDS = ['auto', 'onnx', 'coreml']
 
@@ -38,10 +39,16 @@ module.exports = class Jev {
   }
 
   async ask (state, questions) {
+    if (typeof state !== 'string' && (state === null || typeof state !== 'object')) {
+      throw new ErrorJEV('state must be a string, object, or array', 'INVALID_STATE')
+    }
+
     await this.ready()
 
     const questionIds = Object.keys(questions)
-    if (!questionIds.length) throw new Error('ask: at least one question is required')
+    if (!questionIds.length) {
+      throw new ErrorJEV('ask: at least one question is required', 'QUESTIONS_REQUIRED')
+    }
 
     const items = this._buildItems(state, questions, questionIds)
     const batch = makeBatch(items, this.ids.pad, this.config.max_len, this._engine.padToMultiple)
@@ -55,6 +62,27 @@ module.exports = class Jev {
         output_tokens: 0
       }
     }
+  }
+
+  async noul (state, instructions, criteria) {
+    const response = await this.ask(state, {
+      answer: { type: 'noul', instructions, criteria }
+    })
+    return response.answers.answer
+  }
+
+  async choice (state, instructions, criteria) {
+    const response = await this.ask(state, {
+      answer: { type: 'choice', instructions, criteria }
+    })
+    return response.answers.answer
+  }
+
+  async score (state, instructions, criteria) {
+    const response = await this.ask(state, {
+      answer: { type: 'score', instructions, criteria }
+    })
+    return response.answers.answer
   }
 
   async close () {
@@ -81,13 +109,21 @@ module.exports = class Jev {
       try {
         sequence = buildSequence(encode, this.ids, state, question, this.config.max_len, this.config.head_max_len)
       } catch (err) {
-        const wrapped = new Error(`question ${JSON.stringify(qid)}: ${err.message}`)
-        wrapped.code = err.code
+        const message = err.code && err.message.startsWith(`${err.code}: `)
+          ? err.message.slice(err.code.length + 2)
+          : err.message
+
+        if (err.code) {
+          throw new ErrorJEV(`question ${JSON.stringify(qid)}: ${message}`, err.code, err)
+        }
+
+        const wrapped = new Error(`question ${JSON.stringify(qid)}: ${message}`)
+        wrapped.cause = err
         throw wrapped
       }
 
       if (sequence.markers.length !== sequence.options.length) {
-        throw new Error(`question ${JSON.stringify(qid)}: options do not fit in head_max_len=${this.config.head_max_len} tokens`)
+        throw new ErrorJEV(`question ${JSON.stringify(qid)}: options do not fit in head_max_len=${this.config.head_max_len} tokens`, 'HEAD_TOO_LONG')
       }
 
       return { question, ...sequence, qtype: QUESTION_TYPES[question.t] }

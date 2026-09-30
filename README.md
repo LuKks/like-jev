@@ -13,48 +13,48 @@ Runs offline after a one-time download, with no API key, rate limits, or per-tok
 ```js
 import Jev from 'like-jev'
 
-const jev = new Jev({ model: 'english' })
+const jev = new Jev({ model: 'multilingual' })
 
 await jev.ready()
 
-const result = await jev.ask(
-  {
-    subject: 'Refund not received',
-    body: 'The customer cancelled two weeks ago and still has no refund.'
+const response = await jev.ask({
+  subject: 'Refund not received',
+  body: 'The customer cancelled two weeks ago and still has no refund.'
+}, {
+  team: {
+    type: 'choice',
+    instructions: 'Which team should handle this?',
+    criteria: {
+      billing: 'Payments and refunds',
+      technical: 'Bugs and integrations',
+      sales: 'Pricing and new accounts'
+    }
   },
-  {
-    team: {
-      type: 'choice',
-      instructions: 'Which team should handle this?',
-      criteria: {
-        billing: 'payments and refunds',
-        support: 'product help and bugs'
-      }
-    },
-    urgency: {
-      type: 'score',
-      instructions: 'How urgent is this?',
-      criteria: ['low', 'medium', 'high']
-    },
-    urgent: {
-      type: 'noul',
-      instructions: 'Does this require urgent attention?',
-      criteria: {
-        true: 'The issue needs immediate attention.',
-        false: 'The issue can be handled through the normal queue.'
-      }
+  urgency: {
+    type: 'score',
+    instructions: 'How urgent is this?',
+    criteria: ['low', 'medium', 'high']
+  },
+  urgent: {
+    type: 'noul',
+    instructions: 'Does this require urgent attention?',
+    criteria: {
+      true: 'Explicitly time-sensitive',
+      false: 'No urgency expressed'
     }
   }
-)
+})
 
-console.log(result.answers.team.choice)
+console.log(response.answers.team.choice) // => 'billing'
+console.log(response.answers.urgency.score) // => 1.40 (medium-high)
+console.log(response.answers.urgent.noul) // => 0.98 (true)
 
 await jev.close()
 ```
 
 ## API
 
-### `jev = new Jev([options])`
+#### `jev = new Jev([options])`
 
 Creates a model instance and starts loading it.
 
@@ -99,36 +99,134 @@ Extra options for the `onnx` backend:
 }
 ```
 
-### `await jev.ready()`
+#### `await jev.ready()`
 
 Resolves when the model and tokenizer are ready for use.
 
-### `result = await jev.ask(state, questions)`
+#### `response = await jev.ask(state, questions)`
 
-Runs one or more typed questions against `state` and returns the model name, answers, and token usage. `state` can be a string or a value that can be serialized as JSON. `questions` is an object whose keys identify the questions.
+Runs typed questions against `state` and returns answers keyed by question id.
 
-Each question has an `instructions` value and a `type`. Instructions can be a string or a JSON-serializable value.
-
-A `choice` question selects one criterion. Its `criteria` can be an array of labels or an object that maps labels to descriptions. A `score` question returns a score based on the ordered criteria array. A `noul` question returns a value from `0` to `1`, where `0` represents false and `1` represents true. Its optional `criteria` object can provide `false` and `true` descriptions:
+- `state`: a string, object, or array.
+- `questions`: a map of question ids to `noul`, `choice`, or `score` questions.
 
 ```js
-{
-  type: 'noul',
-  instructions: 'Does this require urgent attention?',
-  criteria: {
-    false: 'No urgent action is needed',
-    true: 'Urgent action is needed'
+const response = await jev.ask('My card was charged twice. Please help ASAP.', {
+  team: {
+    type: 'choice',
+    instructions: 'Which team should handle this?',
+    criteria: { billing: 'payments and refunds', support: 'product help and bugs' }
+  },
+  urgency: {
+    type: 'score',
+    instructions: 'How urgent is this?',
+    criteria: ['low', 'medium', 'high']
+  },
+  urgent: {
+    type: 'noul',
+    instructions: 'Is this urgent?',
+    criteria: { true: 'time-sensitive', false: 'no urgency stated' }
   }
+})
+
+console.log(response.answers) /* => {
+  team: {
+    type: 'choice',
+    choice: 'billing',
+    probabilities: { sales: 0, technical: 0, billing: 1 },
+    confidence: 1
+  }
+} */
+```
+
+#### `response = await jev.noul(state, instructions, criteria)`
+
+Send one `noul` question. The result is returned under `response.answers.answer.noul`.
+
+```js
+const response = await jev.noul(
+  'My card was charged twice. Please help ASAP.',
+  'Does this message convey urgency?',
+  {
+    true: 'Explicitly time-sensitive',
+    false: 'No urgency expressed'
+  }
+)
+
+console.log(response.answers.answer) /* => {
+  type: 'noul',
+  noul: 0.98
+} */
+```
+
+#### `response = await jev.choice(state, instructions, criteria)`
+
+Send one `choice` question. The result is returned under `response.answers.answer.choice`.
+
+```js
+const response = await jev.choice(
+  'My card was charged twice. Please help ASAP.',
+  'Which team should handle this?',
+  {
+    billing: 'Payments and refunds',
+    technical: 'Bugs and integrations',
+    sales: 'Pricing and new accounts'
+  }
+)
+
+console.log(response.answers.answer) /* {
+  type: 'choice',
+  choice: 'billing',
+  probabilities: { technical: 0, sales: 0, billing: 1 },
+  confidence: 1
+} */
+```
+
+#### `response = await jev.score(state, instructions, criteria)`
+
+Send one `score` question. The result is returned under `response.answers.answer.score`.
+
+```js
+const response = await jev.score(
+  'My card was charged twice. Please help ASAP.',
+  'How frustrated is this customer?',
+  ['Calm', 'Frustrated', 'Very angry']
+)
+
+console.log(response.answers.answer) /* => {
+  type: 'score',
+  score: 1.02,
+  legend: { '0': 'Calm', '1': 'Frustrated', '2': 'Very angry' },
+  probabilities: { '0': 0, '1': 0.98, '2': 0.02 },
+  confidence: 0.97
+} */
+```
+
+#### `await jev.close()`
+
+Closes the model.
+
+## Errors
+
+```js
+try {
+  await jev.ask('My card was charged twice.', {})
+} catch (err) {
+  console.error(err.name, err.code, err.message)
 }
 ```
 
-The result contains the selected `model`, an `answers` object keyed by question ID, and token `usage`. The `model` name follows `jev-[backend]-[model]`, for example `jev-coreml-multilingual`. Choice answers include `choice` and label-keyed `probabilities`. Score answers include `score`, `legend`, and index-keyed `probabilities`. Noul answers include `noul`. Choice and score answers also include `confidence`. `output_tokens` is always `0`.
+The `code` property is set for these errors:
 
-Throws an error if `questions` is empty, a question type is unknown, or an input exceeds an internal token limit. Limit errors carry a `code`: `OPTION_TOO_LONG` when one option exceeds 48 tokens, `HEAD_TOO_LONG` when the options leave too little room for instructions, `INSTRUCTIONS_TOO_LONG` when the instructions exceed the remaining head budget, or `STATE_TOO_LONG` when the state exceeds the remaining context.
-
-### `await jev.close()`
-
-Closes the model.
+- `INVALID_STATE`: state must be a string, object, or array.
+- `QUESTIONS_REQUIRED`: `ask()` needs at least one question.
+- `UNKNOWN_QUESTION_TYPE`: the question type is not `choice`, `score`, or `noul`.
+- `INVALID_CHOICE_CRITERIA`: `choice` criteria must be a nonempty map.
+- `INVALID_SCORE_CRITERIA`: `score` criteria must be a nonempty array.
+- `OPTION_TOO_LONG`: an answer option exceeds the token limit.
+- `HEAD_TOO_LONG`: answer options leave too little room for instructions.
+- `INSTRUCTIONS_TOO_LONG`: instructions exceed the available token budget.
+- `STATE_TOO_LONG`: state exceeds the available token budget.
 
 ## License
 
