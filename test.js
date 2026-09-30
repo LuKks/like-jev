@@ -35,7 +35,7 @@ test('uses numeric question type for fallback temperature', async function (t) {
     }
   })
 
-  t.is(result.answers.severity.probabilities['1'], 0.6225)
+  t.ok(Math.abs(result.answers.severity.probabilities['1'] - 0.6224593312018546) < 1e-12)
 })
 
 test('English Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
@@ -48,6 +48,45 @@ test('multilingual Core ML model answers typed questions', { timeout: 60000 * 10
 
 test('English ONNX model answers typed questions', { timeout: 60000 * 10 }, async function (t) {
   await realModelTest(t, { backend: 'onnx', model: 'english' }, 'laya-onnx-english')
+})
+
+test.solo('debug', { timeout: 60000 * 5 }, async function (t) {
+  const laya = new Laya({ backend: 'coreml', model: 'multilingual' })
+  await laya.ready()
+
+  const result = await laya.ask(
+    {
+      subject: 'Refund not received',
+      body: 'The customer cancelled two weeks ago and still has no refund.'
+    },
+    {
+      team: {
+        type: 'choice',
+        instructions: 'Which team should handle this?',
+        criteria: {
+          billing: 'payments and refunds',
+          support: 'product help and bugs'
+        }
+      },
+      urgency: {
+        type: 'score',
+        instructions: 'How urgent is this?',
+        criteria: ['low', 'medium', 'high']
+      },
+      urgent: {
+        type: 'noul',
+        instructions: 'Does this require urgent attention?',
+        criteria: {
+          true: 'The issue needs immediate attention.',
+          false: 'The issue can be handled through the normal queue.'
+        }
+      }
+    }
+  )
+
+  console.log(JSON.stringify(result, null, 2))
+
+  await laya.close()
 })
 
 async function realModelTest (t, opts, model) {

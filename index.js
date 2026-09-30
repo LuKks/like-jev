@@ -43,11 +43,11 @@ module.exports = class Laya {
 
     const items = this._buildItems(state, questions, questionIds)
     const batch = makeBatch(items, this.ids.pad, this.config.max_len, this._engine.padToMultiple)
-    const { logits, actProbabilities } = await this._engine.forward(batch)
+    const { logits } = await this._engine.forward(batch)
 
     return {
       model: this._engine.name,
-      answers: decodeAnswers(questionIds, items, logits, actProbabilities, this.config),
+      answers: decodeAnswers(questionIds, items, logits, this.config),
       usage: {
         input_tokens: items.reduce((sum, item) => sum + item.ids.length, 0),
         output_tokens: 0

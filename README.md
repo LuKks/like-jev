@@ -1,16 +1,22 @@
 # typed-decisions
 
-Requires macOS 14 or newer for Core ML. Core ML runs the English ModernBERT-large checkpoint by default and the multilingual mmBERT-base checkpoint with `model: 'multilingual'`. ONNX runs the English checkpoint on Linux, Windows, and other systems; the multilingual model is Core ML only. Set `backend: 'onnx'` or `backend: 'coreml'` to select a backend.
+Runs typed question-answering with local English or multilingual models.
 
-```js
-const Laya = require('typed-decisions')
-
-const laya = new Laya({ model: 'multilingual' })
+```sh
+npm i typed-decisions
 ```
 
-Model files download on first use. Core ML uses fixed buckets: English 128/512, multilingual 128/512 by default with 256/1024 and the smaller `e8` weights available through `lengths` and `precision`. ONNX uses the English model's 512-token context.
+Core ML requires macOS 14 or newer. The `auto` backend selects Core ML on macOS and ONNX on other platforms. Core ML supports English and multilingual models; ONNX supports English only. Model files download on first use.
+
+## Usage
 
 ```js
+import Laya from 'typed-decisions'
+
+const laya = new Laya({ model: 'multilingual' })
+
+await laya.ready()
+
 const result = await laya.ask(
   {
     subject: 'Refund not received',
@@ -36,4 +42,66 @@ const result = await laya.ask(
     }
   }
 )
+
+console.log(result.answers.team.choice)
+
+await laya.close()
 ```
+
+## API
+
+### `new Laya([options])`
+
+Creates a model instance and starts loading it. Call `await laya.ready()` before using the model; `ask()` also waits for loading to finish.
+
+Options:
+
+```js
+{
+  backend: 'auto',
+  model: 'english',
+  modelDir: './model',
+  precision: 'fp16',
+  lengths: [128, 512],
+  logLevel: 'error',
+  executionProviders: ['webgpu', 'cpu'],
+  sessionOptions: {}
+}
+```
+
+`backend` can be `auto`, `onnx`, or `coreml`. `model` can be `english` or `multilingual` with Core ML; ONNX supports only `english`. `modelDir` sets a local model directory for ONNX. Core ML uses `fp16` by default; the multilingual model also supports `e8`. Core ML defaults to lengths `128` and `512`; English supports `128` and `512`, while multilingual supports `128`, `256`, `512`, and `1024`. `logLevel`, `executionProviders`, and `sessionOptions` are passed to ONNX Runtime. The ONNX model has a 512-token context.
+
+### `await laya.ready()`
+
+Resolves when the model and tokenizer are ready for use.
+
+### `result = await laya.ask(state, questions)`
+
+Runs one or more typed questions against `state` and returns the model name, answers, and token usage. `state` can be a string or a value that can be serialized as JSON. `questions` is an object whose keys identify the questions.
+
+Each question has an `instructions` value and a `type`. Instructions can be a string or a JSON-serializable value.
+
+A `choice` question selects one criterion. Its `criteria` can be an array of labels or an object that maps labels to descriptions. A `score` question returns a score based on the ordered criteria array. A `noul` question returns a value from `0` to `1`, where `0` represents false and `1` represents true. Its optional `criteria` object can provide `false` and `true` descriptions:
+
+```js
+{
+  type: 'noul',
+  instructions: 'Does this require urgent attention?',
+  criteria: {
+    false: 'No urgent action is needed',
+    true: 'Urgent action is needed'
+  }
+}
+```
+
+The result contains the selected `model`, an `answers` object keyed by question ID, and token `usage`. Choice answers include `choice` and label-keyed `probabilities`. Score answers include `score`, `legend`, and index-keyed `probabilities`. Noul answers include `noul`. Choice and score answers also include `confidence`. `output_tokens` is always `0`.
+
+Throws an error if `questions` is empty or a question type is unknown.
+
+### `await laya.close()`
+
+Closes the model.
+
+## License
+
+MIT
