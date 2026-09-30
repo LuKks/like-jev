@@ -8,7 +8,7 @@ npm i like-jev
 
 ## Usage
 
-Run Jev-style question-answering locally, no API key, with probabilities and confidence:
+Runs offline after a one-time download, with no API key, rate limits, or per-token costs.
 
 ```js
 import Jev from 'like-jev'

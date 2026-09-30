@@ -1,3 +1,5 @@
+// AI
+
 const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.js')
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
@@ -53,10 +55,6 @@ module.exports = class Jev {
         output_tokens: 0
       }
     }
-  }
-
-  async systemOne (state, questions) {
-    return this.ask(state, questions)
   }
 
   async close () {
