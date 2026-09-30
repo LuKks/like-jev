@@ -1,12 +1,13 @@
 const test = require('brittle')
-const Laya = require('./index.js')
+const Jev = require('./index.js')
 
 test('uses numeric question type for fallback temperature', async function (t) {
   t.plan(1)
 
-  const laya = new Laya({
+  const jev = new Jev({
     engine: {
-      name: 'laya',
+      backend: 'test',
+      model: 'mock',
       padToMultiple: null,
       tokenizer: {
         encode: function () {
@@ -27,7 +28,7 @@ test('uses numeric question type for fallback temperature', async function (t) {
     }
   })
 
-  const result = await laya.ask({}, {
+  const result = await jev.ask({}, {
     severity: {
       type: 'score',
       instructions: 'How severe is this?',
@@ -41,9 +42,10 @@ test('uses numeric question type for fallback temperature', async function (t) {
 test('throws coded errors when inputs exceed token limits', async function (t) {
   t.plan(5)
 
-  const laya = new Laya({
+  const jev = new Jev({
     engine: {
-      name: 'laya',
+      backend: 'test',
+      model: 'mock',
       padToMultiple: null,
       tokenizer: {
         encode: function (text) {
@@ -67,7 +69,7 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   let error
 
   try {
-    await laya.ask('s', { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'x'.repeat(60), false: 'no' } } })
+    await jev.ask('s', { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'x'.repeat(60), false: 'no' } } })
   } catch (err) {
     error = err
   }
@@ -76,7 +78,7 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.ok(error && error.message.includes('question "q"'))
 
   try {
-    await laya.ask('s', {
+    await jev.ask('s', {
       q: {
         type: 'choice',
         instructions: 'pick',
@@ -90,7 +92,7 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.is(error && error.code, 'HEAD_TOO_LONG')
 
   try {
-    await laya.ask('s', { q: { type: 'noul', instructions: 'i'.repeat(30), criteria: { true: 'yes', false: 'no' } } })
+    await jev.ask('s', { q: { type: 'noul', instructions: 'i'.repeat(30), criteria: { true: 'yes', false: 'no' } } })
   } catch (err) {
     error = err
   }
@@ -98,7 +100,7 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.is(error && error.code, 'INSTRUCTIONS_TOO_LONG')
 
   try {
-    await laya.ask('s'.repeat(60), { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'yes', false: 'no' } } })
+    await jev.ask('s'.repeat(60), { q: { type: 'noul', instructions: 'urgent?', criteria: { true: 'yes', false: 'no' } } })
   } catch (err) {
     error = err
   }
@@ -106,23 +108,72 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.is(error && error.code, 'STATE_TOO_LONG')
 })
 
-test('English Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
-  await realModelTest(t, { backend: 'coreml', model: 'english' }, 'laya-coreml-english')
-})
+test('real models answer typed questions', { timeout: 60000 * 30 }, async function (t) {
+  const skip = process.platform !== 'darwin'
 
-test('multilingual Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
-  await realModelTest(t, { backend: 'coreml', model: 'multilingual' }, 'laya-coreml-multilingual')
-})
+  const models = [
+    { opts: { backend: 'onnx', model: 'english' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'coreml', model: 'english' }, name: 'jev-coreml-english', skip },
+    { opts: { backend: 'coreml', model: 'multilingual' }, name: 'jev-coreml-multilingual', skip }
+  ]
 
-test('English ONNX model answers typed questions', { timeout: 60000 * 10 }, async function (t) {
-  await realModelTest(t, { backend: 'onnx', model: 'english' }, 'laya-onnx-english')
+  const active = models.filter(model => !model.skip)
+
+  t.plan(active.length * 10)
+
+  for (const model of active) {
+    const jev = new Jev(model.opts)
+
+    await jev.ready()
+
+    try {
+      const result = await jev.ask(
+        {
+          subject: 'Refund not received',
+          body: 'The customer cancelled two weeks ago and still has no refund.'
+        },
+        {
+          team: {
+            type: 'choice',
+            instructions: 'Which team should handle this?',
+            criteria: {
+              billing: 'payments and refunds',
+              support: 'product help and bugs'
+            }
+          },
+          urgency: {
+            type: 'score',
+            instructions: 'How urgent is this?',
+            criteria: ['low', 'medium', 'high']
+          },
+          urgent: {
+            type: 'noul',
+            instructions: 'Does this require urgent attention?'
+          }
+        }
+      )
+
+      t.is(result.model, model.name)
+      t.alike(Object.keys(result.answers), ['team', 'urgency', 'urgent'])
+      t.is(result.answers.team.type, 'choice')
+      t.ok(['billing', 'support'].includes(result.answers.team.choice))
+      t.is(result.answers.urgency.type, 'score')
+      t.ok(result.answers.urgency.score >= 0 && result.answers.urgency.score <= 2)
+      t.is(result.answers.urgent.type, 'noul')
+      t.ok(result.answers.urgent.noul >= 0 && result.answers.urgent.noul <= 1)
+      t.ok(result.usage.input_tokens > 0)
+      t.is(result.usage.output_tokens, 0)
+    } finally {
+      await jev.close()
+    }
+  }
 })
 
 test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
-  const laya = new Laya({ backend: 'coreml', model: 'multilingual' })
-  await laya.ready()
+  const jev = new Jev({ backend: 'coreml', model: 'multilingual' })
+  await jev.ready()
 
-  const result = await laya.ask(
+  const result = await jev.ask(
     {
       subject: 'Refund not received',
       body: 'The customer cancelled two weeks ago and still has no refund.'
@@ -154,52 +205,5 @@ test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
 
   console.log(JSON.stringify(result, null, 2))
 
-  await laya.close()
+  await jev.close()
 })
-
-async function realModelTest (t, opts, model) {
-  const laya = new Laya(opts)
-
-  await laya.ready()
-
-  try {
-    const result = await laya.ask(
-      {
-        subject: 'Refund not received',
-        body: 'The customer cancelled two weeks ago and still has no refund.'
-      },
-      {
-        team: {
-          type: 'choice',
-          instructions: 'Which team should handle this?',
-          criteria: {
-            billing: 'payments and refunds',
-            support: 'product help and bugs'
-          }
-        },
-        urgency: {
-          type: 'score',
-          instructions: 'How urgent is this?',
-          criteria: ['low', 'medium', 'high']
-        },
-        urgent: {
-          type: 'noul',
-          instructions: 'Does this require urgent attention?'
-        }
-      }
-    )
-
-    t.is(result.model, model)
-    t.alike(Object.keys(result.answers), ['team', 'urgency', 'urgent'])
-    t.is(result.answers.team.type, 'choice')
-    t.ok(['billing', 'support'].includes(result.answers.team.choice))
-    t.is(result.answers.urgency.type, 'score')
-    t.ok(result.answers.urgency.score >= 0 && result.answers.urgency.score <= 2)
-    t.is(result.answers.urgent.type, 'noul')
-    t.ok(result.answers.urgent.noul >= 0 && result.answers.urgent.noul <= 1)
-    t.ok(result.usage.input_tokens > 0)
-    t.is(result.usage.output_tokens, 0)
-  } finally {
-    await laya.close()
-  }
-}

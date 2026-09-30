@@ -1,5 +1,5 @@
 {
-  "name": "typed-decisions",
+  "name": "like-jev",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
@@ -20,8 +20,7 @@
   },
   "homepage": "https://github.com/lukks/typed-decisions#readme",
   "devDependencies": {
-    "brittle": "^3.3.2",
-    "standard": "^17.1.0"
+    "require-npm-global": "^1.0.0"
   },
   "dependencies": {
     "@huggingface/tokenizers": "^0.2.0",

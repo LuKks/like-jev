@@ -4,7 +4,7 @@ const { makeBatch } = require('./lib/batch.js')
 
 const BACKENDS = ['auto', 'onnx', 'coreml']
 
-module.exports = class Laya {
+module.exports = class Jev {
   constructor (opts = {}) {
     this._opts = opts
     this._engine = null
@@ -20,7 +20,7 @@ module.exports = class Laya {
   async ready () {
     if (this.opened) return
     if (this.opening) return this.opening
-    if (this._closed) throw new Error('laya is closed')
+    if (this._closed) throw new Error('jev is closed')
 
     try {
       const engine = this._opts.engine || await loadEngine(this._opts)
@@ -46,7 +46,7 @@ module.exports = class Laya {
     const { logits } = await this._engine.forward(batch)
 
     return {
-      model: this._engine.name,
+      model: `jev-${this._engine.backend}-${this._engine.model}`,
       answers: decodeAnswers(questionIds, items, logits, this.config),
       usage: {
         input_tokens: items.reduce((sum, item) => sum + item.ids.length, 0),
