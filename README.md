@@ -61,7 +61,7 @@ Creates a model instance and starts loading it.
 Model details:
 
 - `english` = ModernBERT-large (421M)
-- `multilingual` mmBERT-base (322M)
+- `multilingual` = mmBERT-base (322M)
 
 The Core ML backend is blazing fast for Apple devices.
 
@@ -83,6 +83,18 @@ Extra options for the `coreml` backend:
   precision: 'fp16',
   // The model 'multilingual' supports length up to 1024 also.
   lengths: [128, 512]
+}
+```
+
+Extra options for the `onnx` backend:
+
+```js
+{
+  precision: 'fp32' | 'fp16'
+  // The model 'english' has a fixed 512-length.
+  // The model 'multilingual' has a fixed 1024-length.
+  // The 'onnx' backend ignores `lengths` option.
+  lengths: [512] | [1024]
 }
 ```
 
