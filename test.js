@@ -108,21 +108,16 @@ test('throws coded errors when inputs exceed token limits', async function (t) {
   t.is(error && error.code, 'STATE_TOO_LONG')
 })
 
-test.skip('real models answer typed questions', { timeout: 60000 * 30 }, async function (t) {
+test('real models answer typed questions', { timeout: 60000 * 30 }, async function (t) {
   const skip = process.platform !== 'darwin'
 
   const models = [
-    { opts: { backend: 'onnx', model: 'english', precision: 'fp16' }, name: 'jev-onnx-english' },
-    { opts: { backend: 'onnx', model: 'english', precision: 'fp32' }, name: 'jev-onnx-english' },
-    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16' }, name: 'jev-onnx-multilingual' },
-    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp32' }, name: 'jev-onnx-multilingual' },
-    { opts: { backend: 'coreml', model: 'english', precision: 'fp16' }, name: 'jev-coreml-english', skip },
-    { opts: { backend: 'coreml', model: 'multilingual', precision: 'e8' }, name: 'jev-coreml-multilingual', skip },
-    { opts: { backend: 'coreml', model: 'multilingual', precision: 'fp16' }, name: 'jev-coreml-multilingual', skip },
+    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16' }, name: 'jev-multilingual-base' },
+    { opts: { backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' }, name: 'jev-multilingual-base', skip },
 
-    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'cpu' }, name: 'jev-onnx-english' },
-    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'webgpu' }, name: 'jev-onnx-english' },
-    { opts: { backend: 'onnx', model: 'multilingual', precision: 'fp16', device: 'coreml' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'cpu' }, name: 'jev-multilingual-base' },
+    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'webgpu' }, name: 'jev-multilingual-base' },
+    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'cuda' }, name: 'jev-multilingual-base' }
   ]
 
   const active = models.filter(model => !model.skip)
@@ -199,8 +194,8 @@ test.skip('real models answer typed questions', { timeout: 60000 * 30 }, async f
   }
 })
 
-test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
-  const jev = new Jev({ backend: 'coreml', model: 'multilingual' })
+test('debug', { timeout: 60000 * 5 }, async function (t) {
+  const jev = new Jev({ backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' })
   await jev.ready()
 
   const result = await jev.ask(
@@ -233,7 +228,7 @@ test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
     }
   )
 
-  console.log(JSON.stringify(result, null, 2))
+  t.comment(JSON.stringify(result, null, 2))
 
   await jev.close()
 })

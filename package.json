@@ -1,7 +1,7 @@
 {
   "name": "like-jev",
   "version": "0.0.0",
-  "description": "",
+  "description": "Jev-compatible typed decisions (choice, score, noul) with local Core ML and ONNX models.",
   "main": "index.js",
   "files": [
     "lib"

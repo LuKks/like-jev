@@ -13,7 +13,7 @@ Runs offline after a one-time download, with no API key, rate limits, or per-tok
 ```js
 import Jev from 'like-jev'
 
-const jev = new Jev({ model: 'multilingual' })
+const jev = new Jev({ model: 'jev-multilingual-base' })
 
 await jev.ready()
 
@@ -60,8 +60,7 @@ Creates a model instance and starts loading it.
 
 Model details:
 
-- `english` = ModernBERT-large (421M)
-- `multilingual` = mmBERT-base (322M)
+- `jev-multilingual-base` = mmBERT-base (322M)
 
 The Core ML backend is blazing fast for Apple devices.
 
@@ -69,9 +68,9 @@ Options:
 
 ```js
 {
-  // 'auto' selects Core ML on macOS, and ONNX on other platforms.
-  backend: 'auto' | 'onnx' | 'coreml',
-  model: 'english' | 'multilingual'
+  // Defaults to Core ML on macOS and ONNX elsewhere.
+  backend: 'onnx' | 'coreml',
+  model: 'jev-multilingual-base'
 }
 ```
 
@@ -79,9 +78,6 @@ Extra options for the `coreml` backend:
 
 ```js
 {
-  // The model 'multilingual' supports precision 'e8' also.
-  precision: 'fp16',
-  // The model 'multilingual' supports length up to 1024 also.
   lengths: [128, 512]
 }
 ```
@@ -90,12 +86,7 @@ Extra options for the `onnx` backend:
 
 ```js
 {
-  precision: 'fp32' | 'fp16',
-  device: 'webgpu' | 'cpu' | 'cuda' | 'coreml',
-  // The model 'english' has a fixed 512-length.
-  // The model 'multilingual' has a fixed 1024-length.
-  // The 'onnx' backend ignores `lengths` option.
-  lengths: [512] | [1024]
+  device: 'webgpu' | 'cpu' | 'cuda'
 }
 ```
 

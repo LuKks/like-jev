@@ -5,8 +5,6 @@ const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
 const ErrorJEV = require('./lib/error.js')
 
-const BACKENDS = ['auto', 'onnx', 'coreml']
-
 module.exports = class Jev {
   constructor (opts = {}) {
     this._opts = opts
@@ -55,7 +53,7 @@ module.exports = class Jev {
     const { logits } = await this._engine.forward(batch)
 
     return {
-      model: `jev-${this._engine.backend}-${this._engine.model}`,
+      model: this._engine.model,
       answers: decodeAnswers(questionIds, items, logits, this.config),
       usage: {
         input_tokens: items.reduce((sum, item) => sum + item.ids.length, 0),
@@ -132,15 +130,14 @@ module.exports = class Jev {
 }
 
 async function loadEngine (opts) {
-  const backend = opts.backend || 'auto'
+  const BACKENDS = ['onnx', 'coreml']
+  const backend = opts.backend || (process.platform === 'darwin' ? 'coreml' : 'onnx')
+
   if (!BACKENDS.includes(backend)) throw new Error(`backend must be one of ${BACKENDS}`)
 
-  const picked = backend === 'auto'
-    ? (process.platform === 'darwin' ? 'coreml' : 'onnx')
-    : backend
-  if (picked === 'coreml' && process.platform !== 'darwin') {
+  if (backend === 'coreml' && process.platform !== 'darwin') {
     throw new Error('Core ML requires macOS')
   }
 
-  return require(`./lib/${picked}.js`).load(opts)
+  return require(`./lib/${backend}.js`).load(opts)
 }
