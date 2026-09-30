@@ -58,13 +58,19 @@ await jev.close()
 
 Creates a model instance and starts loading it.
 
+Model details:
+
+- `english` = ModernBERT-large (421M)
+- `multilingual` mmBERT-base (322M)
+
+The Core ML backend is blazing fast for Apple devices.
+
 Options:
 
 ```js
 {
   // 'auto' selects Core ML on macOS, and ONNX on other platforms.
   backend: 'auto' | 'onnx' | 'coreml',
-  // The model 'multilingual' requires Core ML.
   model: 'english' | 'multilingual'
 }
 ```
@@ -73,27 +79,12 @@ Extra options for the `coreml` backend:
 
 ```js
 {
-  // ... model details params
-  model: 'english' | 'multilingual'
   // The model 'multilingual' supports precision 'e8' also.
   precision: 'fp16',
   // The model 'multilingual' supports length up to 1024 also.
   lengths: [128, 512]
 }
 ```
-
-Extra options for the `onnx` backend:
-
-```js
-{
-  model: 'english', // The model 'multilingual' is not available for ONNX.
-  logLevel: 'error',
-  executionProviders: ['webgpu', 'cpu'],
-  sessionOptions: {}
-}
-```
-
-The ONNX model has a 512-token context.
 
 ### `await jev.ready()`
 

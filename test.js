@@ -113,6 +113,7 @@ test('real models answer typed questions', { timeout: 60000 * 30 }, async functi
 
   const models = [
     { opts: { backend: 'onnx', model: 'english' }, name: 'jev-onnx-english' },
+    { opts: { backend: 'onnx', model: 'multilingual' }, name: 'jev-onnx-multilingual' },
     { opts: { backend: 'coreml', model: 'english' }, name: 'jev-coreml-english', skip },
     { opts: { backend: 'coreml', model: 'multilingual' }, name: 'jev-coreml-multilingual', skip }
   ]
