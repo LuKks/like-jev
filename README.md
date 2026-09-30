@@ -133,15 +133,26 @@ console.log(response.answers) /* => {
   team: {
     type: 'choice',
     choice: 'billing',
-    probabilities: { sales: 0, technical: 0, billing: 1 },
+    probabilities: { billing: 1, support: 0 },
     confidence: 1
+  },
+  urgency: {
+    type: 'score',
+    score: 1.4,
+    legend: { '0': 'low', '1': 'medium', '2': 'high' },
+    probabilities: { '0': 0.1, '1': 0.4, '2': 0.5 },
+    confidence: 0.14
+  },
+  urgent: {
+    type: 'noul',
+    noul: 0.98
   }
 } */
 ```
 
 #### `response = await jev.noul(state, instructions, criteria)`
 
-Send one `noul` question. The result is returned under `response.answers.answer.noul`.
+Send one `noul` question. The returned answer has `type` and `noul` properties.
 
 ```js
 const response = await jev.noul(
@@ -153,7 +164,7 @@ const response = await jev.noul(
   }
 )
 
-console.log(response.answers.answer) /* => {
+console.log(response) /* => {
   type: 'noul',
   noul: 0.98
 } */
@@ -161,7 +172,7 @@ console.log(response.answers.answer) /* => {
 
 #### `response = await jev.choice(state, instructions, criteria)`
 
-Send one `choice` question. The result is returned under `response.answers.answer.choice`.
+Send one `choice` question. The returned answer has `type`, `choice`, `probabilities`, and `confidence` properties.
 
 ```js
 const response = await jev.choice(
@@ -174,17 +185,17 @@ const response = await jev.choice(
   }
 )
 
-console.log(response.answers.answer) /* {
+console.log(response) /* => {
   type: 'choice',
   choice: 'billing',
-  probabilities: { technical: 0, sales: 0, billing: 1 },
+  probabilities: { billing: 1, technical: 0, sales: 0 },
   confidence: 1
 } */
 ```
 
 #### `response = await jev.score(state, instructions, criteria)`
 
-Send one `score` question. The result is returned under `response.answers.answer.score`.
+Send one `score` question. The returned answer has `type`, `score`, `legend`, `probabilities`, and `confidence` properties.
 
 ```js
 const response = await jev.score(
@@ -193,12 +204,12 @@ const response = await jev.score(
   ['Calm', 'Frustrated', 'Very angry']
 )
 
-console.log(response.answers.answer) /* => {
+console.log(response) /* => {
   type: 'score',
   score: 1.02,
   legend: { '0': 'Calm', '1': 'Frustrated', '2': 'Very angry' },
   probabilities: { '0': 0, '1': 0.98, '2': 0.02 },
-  confidence: 0.97
+  confidence: 0.91
 } */
 ```
 

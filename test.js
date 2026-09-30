@@ -145,6 +145,8 @@ test.skip('real models answer typed questions', { timeout: 60000 * 30 }, async f
     for (let i = 0; i < 10; i++) {
       const time = Date.now()
 
+      const once = !result
+
       result = await jev.ask(
         {
           subject: 'Refund not received (#' + i + ')',
@@ -174,6 +176,10 @@ test.skip('real models answer typed questions', { timeout: 60000 * 30 }, async f
           }
         }
       )
+
+      if (once) {
+        t.comment(JSON.stringify(result, null, 2))
+      }
 
       t.comment('jev.ask(...) time:', Date.now() - time, 'ms with', model.opts.backend + '/' + model.opts.model + '/' + model.opts.precision + '/' + (model.opts.device || 'default'))
     }
