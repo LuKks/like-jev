@@ -69,7 +69,7 @@ Options:
 ```js
 {
   // Defaults to Core ML on macOS and ONNX elsewhere.
-  backend: 'onnx' | 'coreml',
+  backend: 'auto' | 'onnx' | 'coreml',
   model: 'jev-multilingual-base'
 }
 ```

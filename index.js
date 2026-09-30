@@ -130,14 +130,18 @@ module.exports = class Jev {
 }
 
 async function loadEngine (opts) {
-  const BACKENDS = ['onnx', 'coreml']
-  const backend = opts.backend || (process.platform === 'darwin' ? 'coreml' : 'onnx')
+  const BACKENDS = ['auto', 'onnx', 'coreml']
+  const backend = opts.backend === null || opts.backend === undefined ? 'auto' : opts.backend
 
   if (!BACKENDS.includes(backend)) throw new Error(`backend must be one of ${BACKENDS}`)
 
-  if (backend === 'coreml' && process.platform !== 'darwin') {
+  const picked = backend === 'auto'
+    ? (process.platform === 'darwin' ? 'coreml' : 'onnx')
+    : backend
+
+  if (picked === 'coreml' && process.platform !== 'darwin') {
     throw new Error('Core ML requires macOS')
   }
 
-  return require(`./lib/${backend}.js`).load(opts)
+  return require(`./lib/${picked}.js`).load(opts)
 }
