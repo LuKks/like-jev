@@ -1,14 +1,14 @@
 # typed-decisions
 
-Requires macOS 14 or newer for Core ML. Core ML uses the English ModernBERT-large checkpoint on macOS. ONNX uses the same English checkpoint on Linux, Windows, and other systems. Set `backend: 'onnx'` or `backend: 'coreml'` to select a backend.
+Requires macOS 14 or newer for Core ML. Core ML runs the English ModernBERT-large checkpoint by default and the multilingual mmBERT-base checkpoint with `model: 'multilingual'`. ONNX runs the English checkpoint on Linux, Windows, and other systems; the multilingual model is Core ML only. Set `backend: 'onnx'` or `backend: 'coreml'` to select a backend.
 
 ```js
 const Laya = require('typed-decisions')
 
-const laya = new Laya({ backend: 'onnx' })
+const laya = new Laya({ model: 'multilingual' })
 ```
 
-Model files download on first use. Core ML uses fixed 128/512-token buckets. ONNX uses the English model's 512-token context.
+Model files download on first use. Core ML uses fixed buckets: English 128/512, multilingual 128/512 by default with 256/1024 and the smaller `e8` weights available through `lengths` and `precision`. ONNX uses the English model's 512-token context.
 
 ```js
 const result = await laya.ask(

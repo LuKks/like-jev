@@ -39,11 +39,15 @@ test('uses numeric question type for fallback temperature', async function (t) {
 })
 
 test('English Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
-  await realModelTest(t, { backend: 'coreml' }, 'laya-coreml-english')
+  await realModelTest(t, { backend: 'coreml', model: 'english' }, 'laya-coreml-english')
+})
+
+test('multilingual Core ML model answers typed questions', { timeout: 60000 * 10, skip: process.platform !== 'darwin' }, async function (t) {
+  await realModelTest(t, { backend: 'coreml', model: 'multilingual' }, 'laya-coreml-multilingual')
 })
 
 test('English ONNX model answers typed questions', { timeout: 60000 * 10 }, async function (t) {
-  await realModelTest(t, { backend: 'onnx' }, 'laya-onnx-english')
+  await realModelTest(t, { backend: 'onnx', model: 'english' }, 'laya-onnx-english')
 })
 
 async function realModelTest (t, opts, model) {
