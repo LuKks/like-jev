@@ -90,7 +90,8 @@ Extra options for the `onnx` backend:
 
 ```js
 {
-  precision: 'fp32' | 'fp16'
+  precision: 'fp32' | 'fp16',
+  device: 'webgpu' | 'cpu' | 'cuda' | 'coreml',
   // The model 'english' has a fixed 512-length.
   // The model 'multilingual' has a fixed 1024-length.
   // The 'onnx' backend ignores `lengths` option.
