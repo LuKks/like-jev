@@ -52,6 +52,36 @@ console.log(response.answers.urgent.noul) // => 0.98 (true)
 await jev.close()
 ```
 
+## Benchmarks
+
+`jev-multilingual-base` (FP16) on Apple Silicon M2 (macOS 27.0.1):
+
+| Engine | 1 question | 3 questions | 50 questions | 50 questions, 25k tokens | `ready()` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Core ML | 8 ms | 28 ms | 434 ms | 2264 ms | 4.7 s |
+| ONNX WebGPU | 66 ms | 105 ms | 1280 ms | 31021 ms | 2.9 s |
+| ONNX CPU | 78 ms | 204 ms | 5388 ms | — | 3.1 s |
+
+<details>
+<summary>Benchmark details</summary>
+
+ONNX runs the 50-row batch in one session run.
+
+Core ML runs rows sequentially.
+
+The one-question workload used 59 input tokens.
+
+The three-question workload used 191.
+
+The 50-question workload used 2977 input tokens.
+
+The 25k-token workload used 25127 input tokens, 50 x ~500 tokens.
+
+English text averages 4.86 chars per token with this tokenizer.
+
+A 25k-token workload needs roughly 121k chars of state text.
+</details>
+
 ## API
 
 #### `jev = new Jev([options])`

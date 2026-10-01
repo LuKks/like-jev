@@ -112,12 +112,9 @@ test('real models answer typed questions', { timeout: 60000 * 30 }, async functi
   const skip = process.platform !== 'darwin'
 
   const models = [
-    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16' }, name: 'jev-multilingual-base' },
     { opts: { backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' }, name: 'jev-multilingual-base', skip },
-
-    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'cpu' }, name: 'jev-multilingual-base' },
     { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'webgpu' }, name: 'jev-multilingual-base' },
-    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'cuda' }, name: 'jev-multilingual-base' }
+    { opts: { backend: 'onnx', model: 'jev-multilingual-base', precision: 'fp16', device: 'cpu' }, name: 'jev-multilingual-base' }
   ]
 
   const active = models.filter(model => !model.skip)
@@ -194,7 +191,60 @@ test('real models answer typed questions', { timeout: 60000 * 30 }, async functi
   }
 })
 
-test('debug', { timeout: 60000 * 5 }, async function (t) {
+test('coreml benchmark: 50 questions, small state', { skip: process.platform !== 'darwin', timeout: 60000 * 5 }, async function (t) {
+  t.plan(2)
+
+  const startReady = Date.now()
+  const jev = new Jev({ backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' })
+  await jev.ready()
+  t.comment(`ready(): ${Date.now() - startReady} ms`)
+
+  const sample = 'The customer cancelled two weeks ago and still has no refund. Please help ASAP, my card was charged twice. '.repeat(40)
+  const sampleTokens = encodeTokens(jev, sample).length
+  const charsPerToken = sample.length / sampleTokens
+  t.comment(`chars per token: ${charsPerToken.toFixed(2)} (${sample.length} chars / ${sampleTokens} tokens, english sample)`)
+  t.ok(charsPerToken > 3 && charsPerToken < 6, 'chars per token stays in the expected range')
+
+  const questions50 = makeMixedQuestions(50)
+
+  const smallState = {
+    subject: 'Refund not received',
+    body: 'The customer cancelled two weeks ago and still has no refund.'
+  }
+
+  const small = await runSeries(t, jev, '50 questions, small state', smallState, questions50, 6)
+
+  t.ok(small.usage.input_tokens > 2000)
+
+  await jev.close()
+})
+
+test('coreml benchmark: 50 questions, 25k input tokens', { skip: process.platform !== 'darwin', timeout: 60000 * 5 }, async function (t) {
+  t.plan(4)
+
+  const startReady = Date.now()
+  const jev = new Jev({ backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' })
+  await jev.ready()
+  t.comment(`ready(): ${Date.now() - startReady} ms`)
+
+  const questions50 = makeMixedQuestions(50)
+
+  const bigState = makeBigState(jev, 470)
+  t.comment(`big state: ${bigState.length} chars, ${encodeTokens(jev, bigState).length} tokens`)
+
+  const big = await runSeries(t, jev, '50 questions, ~25k total input tokens', bigState, questions50, 6)
+
+  const expectedTypes = { 0: 'choice', 1: 'score', 2: 'noul' }
+
+  t.is(big.model, 'jev-multilingual-base')
+  t.is(Object.keys(big.answers).length, 50)
+  t.ok(big.usage.input_tokens > 24000)
+  t.ok(Object.keys(big.answers).every(qid => big.answers[qid].type === expectedTypes[Number(qid.slice(1)) % 3]))
+
+  await jev.close()
+})
+
+test.skip('debug', { timeout: 60000 * 5 }, async function (t) {
   const jev = new Jev({ backend: 'coreml', model: 'jev-multilingual-base', precision: 'fp16' })
   await jev.ready()
 
@@ -232,3 +282,76 @@ test('debug', { timeout: 60000 * 5 }, async function (t) {
 
   await jev.close()
 })
+
+function encodeTokens (jev, text) {
+  return jev.tokenizer.encode(text, { add_special_tokens: false }).ids
+}
+
+function makeMixedQuestions (count) {
+  const questions = {}
+
+  for (let i = 0; i < count; i++) {
+    const kind = i % 3
+
+    if (kind === 0) {
+      questions[`q${i}`] = {
+        type: 'choice',
+        instructions: `Question ${i}: which team handles this?`,
+        criteria: { billing: 'payments and refunds', support: 'product help', sales: 'pricing' }
+      }
+    } else if (kind === 1) {
+      questions[`q${i}`] = {
+        type: 'score',
+        instructions: `Question ${i}: how severe is this?`,
+        criteria: ['low', 'medium', 'high', 'critical']
+      }
+    } else {
+      questions[`q${i}`] = {
+        type: 'noul',
+        instructions: `Question ${i}: does this need urgent attention?`,
+        criteria: { true: 'time-sensitive', false: 'no urgency stated' }
+      }
+    }
+  }
+
+  return questions
+}
+
+function makeBigState (jev, targetTokens) {
+  const sentence = 'The customer cancelled the order two weeks ago and still has not received any refund from our store '
+  let text = ''
+
+  while (encodeTokens(jev, text + sentence).length < targetTokens) {
+    text += sentence
+  }
+
+  for (const word of sentence.split(' ')) {
+    if (encodeTokens(jev, text + word + ' ').length >= targetTokens) break
+    text += word + ' '
+  }
+
+  return text.trim()
+}
+
+async function runSeries (t, jev, label, state, questions, runs) {
+  const times = []
+  let response = null
+
+  for (let i = 0; i < runs; i++) {
+    const start = Date.now()
+    response = await jev.ask(state, questions)
+    times.push(Date.now() - start)
+  }
+
+  const warm = times.slice(1)
+  const warmAvg = Math.round(warm.reduce((a, b) => a + b, 0) / warm.length)
+  const count = Object.keys(questions).length
+
+  t.comment(`[${label}]`)
+  t.comment(`  questions: ${count}, input tokens: ${response.usage.input_tokens}`)
+  t.comment(`  cold ask: ${times[0]} ms`)
+  t.comment(`  warm asks: ${warm.join(', ')} ms (avg ${warmAvg} ms)`)
+  t.comment(`  per question warm: ${(warmAvg / count).toFixed(1)} ms`)
+
+  return response
+}

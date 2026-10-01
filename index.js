@@ -1,6 +1,6 @@
 // AI
 
-const { QUESTION_TYPES, buildSequence, toInternal } = require('./lib/questions.js')
+const { QUESTION_TYPES, buildSequence, prepareState, toInternal } = require('./lib/questions.js')
 const { decodeAnswers } = require('./lib/decode.js')
 const { makeBatch } = require('./lib/batch.js')
 const ErrorJEV = require('./lib/error.js')
@@ -99,13 +99,14 @@ module.exports = class Jev {
 
   _buildItems (state, questions, questionIds) {
     const encode = text => this.tokenizer.encode(text, { add_special_tokens: false }).ids
+    const stateIds = prepareState(encode, this.ids, state)
 
     return questionIds.map(qid => {
       const question = toInternal(questions[qid])
 
       let sequence
       try {
-        sequence = buildSequence(encode, this.ids, state, question, this.config.max_len, this.config.head_max_len)
+        sequence = buildSequence(encode, this.ids, state, question, this.config.max_len, this.config.head_max_len, stateIds)
       } catch (err) {
         const message = err.code && err.message.startsWith(`${err.code}: `)
           ? err.message.slice(err.code.length + 2)
